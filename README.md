@@ -9,6 +9,8 @@ You can get a signed version of this extension from
 
 Once downloaded, move `Stripe.lua` to your MoneyMoney Extensions folder.
 
+**Note:** This extension requires MoneyMoney Version 2.3.4 or newer.
+
 ## Account Setup
 
 ### Stripe
