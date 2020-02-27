@@ -29,7 +29,7 @@ WebBanking{version     = 1.00,
            description = "Fetches balances from Stripe API and returns them as transactions"}
 
 local apiSecret
-local account 
+local account
 local apiUrlVersion = "v1"
 
 function SupportsBank (protocol, bankCode)
@@ -57,8 +57,9 @@ end
 
 function StripeRequest (endPoint)
   local headers = {}
-  
+
   headers["Authorization"] = "Bearer " .. apiSecret
+  headers["Accept"] = "application/json"
 
   connection = Connection()
   content = connection:request("GET", url .. apiUrlVersion .. "/" .. endPoint, nil, nil, headers)
@@ -83,45 +84,59 @@ function GetBalances ()
 end
 
 function GetTransactions (since)
-  print(since)
   local transactions = {}
+  local lastTransaction = nil
+  local moreItemsAvailable
+  local requestString
 
-  stripeTransactions = StripeRequest("balance/history?limit=100&created[gt]=" .. since):dictionary()["data"]
-
-  for key, value in pairs(stripeTransactions) do
-    purpose = value["type"]
-    if value["description"] then
-      purpose = purpose .. "\n" .. value["description"]
-    end
-    if value["fee"] == 0 then
-      transactions[#transactions+1] = {
-        bookingDate = value["created"],
-        valueDate = value["available_on"],
-        purpose = purpose,
-        endToEndReference = value["source"],
-        amount = (value["amount"] / 100),
-        currency = string.upper(value["currency"])
-      }
+  repeat
+    if lastTransaction == nil then
+      requestString = "balance_transactions?limit=100&created[gt]=" .. since
     else
-      for feeKey, feeValue in pairs(value["fee_details"]) do
+      requestString = "balance_transactions?limit=100&created[gt]=" .. since .. "&starting_after=" .. lastTransaction
+    end
+
+    stripeObject = StripeRequest(requestString):dictionary()
+    moreItemsAvailable = stripeObject["has_more"]
+
+    for key, value in pairs(stripeObject["data"]) do
+      lastTransaction = value["id"]
+      purpose = value["type"]
+
+      if value["description"] then
+        purpose = purpose .. "\n" .. value["description"]
+      end
+      if value["fee"] == 0 then
         transactions[#transactions+1] = {
           bookingDate = value["created"],
           valueDate = value["available_on"],
-          purpose = feeValue["type"] .. "\n" .. feeValue["description"],
-          amount = (feeValue["amount"] / 100) * -1,
-          currency = string.upper(feeValue["currency"])
+          purpose = purpose,
+          endToEndReference = value["source"],
+          amount = (value["amount"] / 100),
+          currency = string.upper(value["currency"])
+        }
+      else
+        for feeKey, feeValue in pairs(value["fee_details"]) do
+          transactions[#transactions+1] = {
+            bookingDate = value["created"],
+            valueDate = value["available_on"],
+            purpose = feeValue["type"] .. "\n" .. feeValue["description"],
+            amount = (feeValue["amount"] / 100) * -1,
+            currency = string.upper(feeValue["currency"])
+          }
+        end
+        transactions[#transactions+1] = {
+          bookingDate = value["created"],
+          valueDate = value["available_on"],
+          purpose = purpose,
+          endToEndReference = value["source"],
+          amount = (value["amount"] / 100),
+          currency = string.upper(value["currency"])
         }
       end
-      transactions[#transactions+1] = {
-        bookingDate = value["created"],
-        valueDate = value["available_on"],
-        purpose = purpose,
-        endToEndReference = value["source"],
-        amount = (value["amount"] / 100),
-        currency = string.upper(value["currency"])
-      }
     end
-  end
+
+  until(not moreItemsAvailable)
 
   return transactions
 end
