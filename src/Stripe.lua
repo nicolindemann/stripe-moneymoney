@@ -23,7 +23,7 @@
 -- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 -- SOFTWARE.
 
-WebBanking{version     = 1.00,
+WebBanking{version     = 1.1,
            url         = "https://api.stripe.com/",
            services    = {"Stripe Account"},
            description = "Fetches balances from Stripe API and returns them as transactions"}
